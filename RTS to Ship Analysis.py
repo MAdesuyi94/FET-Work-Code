@@ -32,7 +32,7 @@ def territory_assign(terr):
     else:
         return np.nan
 
-usfc = xw.Book(r"C:\Users\Matthew.Adesuyi\Documents\Ultimate Steel Forecast\Ultimate Steel Forecast.xlsm")
+usfc = xw.Book(r"C:\Users\Matthew.Adesuyi\OneDrive - Forum Energy Technologies\Documents\Active Strings Machine Learning.xlsx")
 strings = usfc.sheets["Active Strings Clean"].range("A1:T13000").options(pd.DataFrame,index=False).value.dropna(how='all',axis=0)
 
 strings = strings.loc[(pd.isnull(strings['RTS Date'])==False)&(strings['String Status']=='Shipped')]
@@ -49,39 +49,48 @@ strings['RTS to Ship'] = (strings['Scheduled or Actual Shipping Date'] - strings
 strings.loc[(strings['RTS to Ship']<=-1)&(strings['RTS to Ship']>=-30),'RTS to Ship'] = 0
 strings = strings.dropna(subset=['RTS to Ship'],axis=0)
 strings.drop(strings.loc[strings['RTS to Ship']<0].index,inplace=True)
-strings = strings[['Customer','Territory','Country','Basin','Pipe Grade','Business Unit','RTS to Ship']]
-
+strings['Year'] = strings['RTS Date'].dt.year
+strings['Month'] = strings['RTS Date'].dt.strftime("%B")
+strings = strings[['Year','Month','Customer','Territory','Country','Basin','Pipe Grade','Business Unit','RTS to Ship']]
 strings['Log RTS to Ship'] = np.log(strings['RTS to Ship']+1)
-strings['RTS to Ship Bins'] = pd.qcut(strings['RTS to Ship'],q=4,precision=1,labels=[1,2,3])
+#strings['RTS to Ship Bins'] = pd.qcut(strings['RTS to Ship'],q=4,precision=1,labels=[1,2,3])
 strings['RTS to Ship Bins'] = strings['RTS to Ship'].apply(lambda x: 0 if x<30 else 1)
 """
 ******************************DATA EXPLORATION*******************************************************
 """
 plt.ylim(0,400)
-fig1 = plt.figure()
+fig1 = plt.figure(figsize=(50,30))
 ax1 = fig1.add_subplot()
 sns.histplot(data=strings.loc[(strings['RTS to Ship']<500)],x='RTS to Ship',ax=ax1)
-ax1.set_title("Histogram of RTS to Ship Time")
+ax1.set_title("Histogram of RTS to Ship Time",fontsize=50)
+ax1.set_xlabel("RTS to Ship",fontsize=50)
+ax1.set_ylabel("Count",fontsize=50)
+ax1.tick_params(labelsize=30)
+fig1.savefig("Histogram of RTS to Ship Time.png",transparent=True)
 plt.show()
 
 fig2 = plt.figure()
 ax2 = fig2.add_subplot()
 
-cat_list = ['Customer','Territory','Country','Basin','Pipe Grade','Business Unit']
+cat_list = ['Territory','Basin','Pipe Grade','Business Unit','Year','Month']
 for c in cat_list:
-    fig2 = plt.figure(figsize=(100,10))
+    fig2 = plt.figure(figsize=(50,20))
     ax2 = fig2.add_subplot()
+    ax2.set_title(f"RTS to Ship vs {c}",fontsize=50)
     ax2.set(ylim=(0,400))
+    ax2.set_xlabel(c,fontsize=50)
+    ax2.set_ylabel('RTS to Ship',fontsize=50)
+    ax2.tick_params(labelsize=30)
     sns.boxplot(x=c,y='RTS to Ship',data=strings.loc[strings[c]!='Other'],ax=ax2)
+    fig2.savefig(f"Boxplot of RTS to Ship vs {c}.png",transparent=True)
     plt.show()
 
-cat_list_2 = ['Business Unit','Territory','Basin','Pipe Grade']
+cat_list_2 = ['Business Unit','Territory','Basin','Pipe Grade','Year','Month']
 for c in cat_list_2:
     fig3 = plt.figure()
     ax3 = fig3.add_subplot()
     ax3.set(xlim=(0,500))
     sns.displot(x='RTS to Ship',hue=c,kind='kde',data=strings.loc[(strings[c]!='Other')&(strings['RTS to Ship']<500)],fill=True,ax=ax3)
-
 
 for c in cat_list_2:
     fig3 = plt.figure()
@@ -98,6 +107,7 @@ for c in cat_list_2:
 df = pd.concat([pd.get_dummies(strings['Territory']),pd.get_dummies(strings['Basin']),
                 pd.get_dummies(strings['Customer']),pd.get_dummies(strings['Business Unit'],drop_first=True),
                 pd.get_dummies(strings['Country']),pd.get_dummies(strings['Pipe Grade']),
+                pd.get_dummies(strings['Year']),pd.get_dummies(strings['Month']),
                 strings['RTS to Ship Bins']],axis=1)
 df.drop('Other',axis=1,inplace=True)
 X = df.drop('RTS to Ship Bins',axis=1)
