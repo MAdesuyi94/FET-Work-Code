@@ -140,17 +140,58 @@ roc_auc_score(yv,yvpred)
 ******************************Decision Trees****************************************
 """
 
-dtc = DecisionTreeClassifier()
+score_list = ['accuracy','f1','recall','roc_auc']
+
+dtc_grid = {
+    "criterion": ["gini","entropy"],
+    "max_depth": [6,7,8,9,10,15,20,25],
+    "max_features": ["auto",100,None],
+    "min_samples_split": [2,4,8,10]
+}
+
+
+
+
+
+dtc3 = GridSearchCV(DecisionTreeClassifier(),dtc_grid,cv=3,scoring=score_list,n_jobs=-1,verbose=2,return_train_score=False,refit='roc_auc')
+dtc3.fit(Xt,yt)
+dtc_dic = dtc3.cv_results_
+dtc_best =  dtc3.best_params_
+dtc = DecisionTreeClassifier(criterion="gini",max_depth=25,
+                             max_features=dtc_best['max_features'],min_samples_split=dtc_best["min_samples_split"])
 dtc.fit(Xt,yt)
 dtctpred = dtc.predict(Xt)
 dtcvpred = dtc.predict(Xv)
+dtcv_prob = dtc.predict_proba(Xv)[:,1]
 ytdtc_acc = accuracy_score(yt,dtctpred)
 yvdtc_acc = accuracy_score(yv,dtcvpred)
 confusion_matrix(yt,dtctpred)
 confusion_matrix(yv,dtcvpred)
-roc_auc_score(yv,dtcvpred)
+ytdtc_auc = roc_auc_score(yt,dtctpred)
+yvdtc_auc = roc_auc_score(yv,dtcv_prob)
 
-rfc = RandomForestClassifier()
+"""
+*******************************Random Forest********************************************
+"""
+
+rfc_grid = {
+    "criterion":[dtc_best['criterion']],
+    "n_estimators":[100,300,500],
+    "max_depth":[dtc_best["max_depth"]],
+    "max_features":['sqrt',None],
+    "min_samples_split":[dtc_best["min_samples_split"]]
+    }
+
+
+rfc3 = GridSearchCV(RandomForestClassifier(),rfc_grid,scoring=score_list,cv=3,n_jobs=-1,refit='roc_auc',return_train_score=False,verbose=2)
+rfc3.fit(Xt,yt)
+rfc_dic = rfc3.cv_results_
+rfc_best = rfc3.best_params_
+
+
+rfc = RandomForestClassifier(n_estimators=rfc_best['n_estimators'],max_depth=rfc_best['max_depth'],
+                             criterion=rfc_best["criterion"],max_features=rfc_best["max_features"],
+                             min_samples_split=rfc_best['min_samples_split'])
 rfc.fit(Xt,yt)
 rfctpred = rfc.predict(Xt)
 rfcvpred = rfc.predict(Xv)
@@ -158,15 +199,16 @@ ytrfc_acc = accuracy_score(yt,rfctpred)
 yvrfc_acc = accuracy_score(yv,rfcvpred)
 confusion_matrix(yt,rfctpred)
 confusion_matrix(yv,rfcvpred)
-roc_auc_score(yt,rfctpred)
-roc_auc_score(yv,rfcvpred)
+ytrfc_auc = roc_auc_score(yt,rfctpred)
+yvrfc_auc = roc_auc_score(yv,rfcvpred)
 
-xgbc = XGBClassifier(n_estimators=1000,learning_rate=.5,verbosity=1)
-xgbc.fit(Xt,yt)
+xgbc = XGBClassifier(n_estimators=1000,learning_rate=.5,verbosity=1,n_jobs=-1)
+xgbc.fit(Xt,yt,verbose=True,early_stopping_rounds=15,eval_set=[(Xv,yv)],eval_metric='auc')
 xgbtpred = xgbc.predict(Xt)
 xgbvpred = xgbc.predict(Xv)
+xgbv_prob = xgbc.predict_proba(Xv)[:,1]
 ytxgb_acc = accuracy_score(yt,xgbtpred)
 yvxgb_acc = accuracy_score(yv,xgbvpred)
 confusion_matrix(yt,xgbtpred)
 confusion_matrix(yv,xgbvpred)
-roc_auc_score(yv,xgbvpred)
+roc_auc_score(yv,xgbv_prob)
