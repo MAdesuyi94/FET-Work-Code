@@ -13,8 +13,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score,roc_auc_score,confusion_matrix
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
 
 def territory_assign(terr):
     if terr == 'CT CAN':
@@ -53,8 +55,9 @@ strings['Year'] = strings['RTS Date'].dt.year
 strings['Month'] = strings['RTS Date'].dt.strftime("%B")
 strings = strings[['Year','Month','Customer','Territory','Country','Basin','Pipe Grade','Business Unit','RTS to Ship']]
 strings['Log RTS to Ship'] = np.log(strings['RTS to Ship']+1)
-#strings['RTS to Ship Bins'] = pd.qcut(strings['RTS to Ship'],q=4,precision=1,labels=[1,2,3])
-strings['RTS to Ship Bins'] = strings['RTS to Ship'].apply(lambda x: 0 if x<30 else 1)
+#strings['RTS to Ship Bins'] = pd.qcut(strings['RTS to Ship'],q=3,precision=1,labels=[1,2,3])
+#strings['RTS to Ship Bins'] = strings['RTS to Ship'].apply(lambda x: 0 if x<=30 else (1 if x<=60 else 2))
+strings['RTS to Ship Bins'] = strings['RTS to Ship'].apply(lambda x: 0 if x<=30 else 1)
 """
 ******************************DATA EXPLORATION*******************************************************
 """
@@ -92,11 +95,13 @@ for c in cat_list_2:
     ax3.set(xlim=(0,500))
     sns.displot(x='RTS to Ship',hue=c,kind='kde',data=strings.loc[(strings[c]!='Other')&(strings['RTS to Ship']<500)],fill=True,ax=ax3)
 
+"""
 for c in cat_list_2:
     fig3 = plt.figure()
     ax3 = fig3.add_subplot()
     ax3.set(xlim=(0,500))
     sns.displot(x='Log RTS to Ship',hue=c,kind='kde',data=strings.loc[(strings[c]!='Other')],fill=True,ax=ax3)
+"""
 
 for c in cat_list_2:
     fig4 = plt.figure()
@@ -110,10 +115,10 @@ df = pd.concat([pd.get_dummies(strings['Territory']),pd.get_dummies(strings['Bas
                 pd.get_dummies(strings['Year']),pd.get_dummies(strings['Month']),
                 strings['RTS to Ship Bins']],axis=1)
 df.drop('Other',axis=1,inplace=True)
-X = df.drop('RTS to Ship Bins',axis=1)
-y = df['RTS to Ship Bins']
+X = np.array(df.drop('RTS to Ship Bins',axis=1))
+y = np.array(df['RTS to Ship Bins'])
 
-Xt,Xv,yt,yv = train_test_split(X,y,test_size=0.25,stratify=y)
+Xt,Xv,yt,yv = train_test_split(X,y,test_size=0.25,stratify=y,random_state=12345)
 
 
 lr = LogisticRegression(verbose=1,max_iter=10000,penalty='none',solver='lbfgs')
@@ -128,6 +133,13 @@ confusion_matrix(yv,yvpred)
 roc_auc_score(yt,ytpred)
 roc_auc_score(yv,yvpred)
 
+
+
+
+"""
+******************************Decision Trees****************************************
+"""
+
 dtc = DecisionTreeClassifier()
 dtc.fit(Xt,yt)
 dtctpred = dtc.predict(Xt)
@@ -137,3 +149,24 @@ yvdtc_acc = accuracy_score(yv,dtcvpred)
 confusion_matrix(yt,dtctpred)
 confusion_matrix(yv,dtcvpred)
 roc_auc_score(yv,dtcvpred)
+
+rfc = RandomForestClassifier()
+rfc.fit(Xt,yt)
+rfctpred = rfc.predict(Xt)
+rfcvpred = rfc.predict(Xv)
+ytrfc_acc = accuracy_score(yt,rfctpred)
+yvrfc_acc = accuracy_score(yv,rfcvpred)
+confusion_matrix(yt,rfctpred)
+confusion_matrix(yv,rfcvpred)
+roc_auc_score(yt,rfctpred)
+roc_auc_score(yv,rfcvpred)
+
+xgbc = XGBClassifier(n_estimators=1000,learning_rate=.5,verbosity=1)
+xgbc.fit(Xt,yt)
+xgbtpred = xgbc.predict(Xt)
+xgbvpred = xgbc.predict(Xv)
+ytxgb_acc = accuracy_score(yt,xgbtpred)
+yvxgb_acc = accuracy_score(yv,xgbvpred)
+confusion_matrix(yt,xgbtpred)
+confusion_matrix(yv,xgbvpred)
+roc_auc_score(yv,xgbvpred)
