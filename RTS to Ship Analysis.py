@@ -17,6 +17,8 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
+import joblib
+import pickle
 
 def territory_assign(terr):
     if terr == 'CT CAN':
@@ -144,7 +146,7 @@ score_list = ['accuracy','f1','recall','roc_auc']
 
 dtc_grid = {
     "criterion": ["gini","entropy"],
-    "max_depth": [6,7,8,9,10,15,20,25],
+    "max_depth": [6,7,8,9,10,11,12,13,14,15,16,17,18],
     "max_features": ["auto",100,None],
     "min_samples_split": [2,4,8,10]
 }
@@ -153,11 +155,11 @@ dtc_grid = {
 
 
 
-dtc3 = GridSearchCV(DecisionTreeClassifier(),dtc_grid,cv=3,scoring=score_list,n_jobs=-1,verbose=2,return_train_score=False,refit='roc_auc')
+dtc3 = GridSearchCV(DecisionTreeClassifier(),dtc_grid,cv=8,scoring=score_list,n_jobs=-1,verbose=2,return_train_score=False,refit='accuracy')
 dtc3.fit(Xt,yt)
 dtc_dic = dtc3.cv_results_
 dtc_best =  dtc3.best_params_
-dtc = DecisionTreeClassifier(criterion="gini",max_depth=25,
+dtc = DecisionTreeClassifier(criterion="gini",max_depth=dtc_best['max_depth'],
                              max_features=dtc_best['max_features'],min_samples_split=dtc_best["min_samples_split"])
 dtc.fit(Xt,yt)
 dtctpred = dtc.predict(Xt)
